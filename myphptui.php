@@ -113,7 +113,7 @@ class Event
 {
     public function __construct(
         public EventKind $kind,
-        public ?object $data,
+        public mixed $data,
     ) {}
 }
 
@@ -128,7 +128,7 @@ class KeyInfo
 {
     public function __construct(
         public KeyKind $kind,
-        public ?object $data,
+        public mixed $data,
     ) {}
 }
 
@@ -165,7 +165,7 @@ class TuiCallbackAction
 {
     public function __construct(
         public TuiCallbackActionKind $kind,
-        public ?object $data,
+        public mixed $data,
     ) {}
 }
 
@@ -184,8 +184,8 @@ function runTui(string $sceneClass)
     {
         $readByte = fn() => (($tc = fread(STDIN, 1)) === '' || $tc === false) ? null : $tc;
         if (($char = $readByte()) === null) return null;
-        if ($char !== "\033") return new KeyInfo(KeyKind::Character, (object) $char);
-        return new KeyInfo(...match ("\033" .  $readByte() ?? '' . $readByte() ?? '') {
+        if ($char !== "\033") return new KeyInfo(KeyKind::Character, $char);
+        return new KeyInfo(...match ("\033" .  ($readByte() ?? '') . ($readByte() ?? '')) {
             "\033" => [KeyKind::Escape, null],
             "\033[A" => [KeyKind::Direction, Direction::Up],
             "\033[B" => [KeyKind::Direction, Direction::Down],
