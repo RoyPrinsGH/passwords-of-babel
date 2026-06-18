@@ -5,7 +5,7 @@ namespace MyPhpTui; use Exception; use FilesystemIterator; use RecursiveDirector
 final class Colour { public const BLACK = 30; public const RED = 31; public const GREEN = 32; public const YELLOW = 33; public const BLUE = 34; public const MAGENTA = 35; public const CYAN = 36; public const WHITE = 37; public const BG_BLACK = 40; public const BG_RED = 41; public const BG_GREEN = 42; public const BG_YELLOW = 43; public const BG_BLUE = 44; public const BG_MAGENTA = 45; public const BG_CYAN = 46; public const BG_WHITE = 47; }
 final class Dimensions { public function __construct(public int $width, public int $height) {} }
 final class Event{public function __construct(public EventKind $kind, public mixed $data) {} }
-enum EventKind { case PreKeyHandle; case KeyDown; case PostKeyHandle; }
+enum EventKind { case Resized; case PreKeyHandle; case KeyDown; case PostKeyHandle; }
 final class KeyInfo { public function __construct(public KeyKind $kind, public mixed $data) {} }
 enum KeyKind { case Escape; case BackSpace; case Enter; case Direction; case Character; case Unknown; }
 enum Direction { case Up; case Down; case Right; case Left; }
@@ -16,7 +16,7 @@ interface Scene {
 final class TuiCallbackActionFactory { 
     public static function exit(): TuiCallbackAction { return new TuiCallbackAction(0, null); }
     public static function pushScene(string $sceneClass): TuiCallbackAction { return new TuiCallbackAction(1, $sceneClass); }
-    public static function navToScene(string $sceneClass): TuiCallbackAction { return new TuiCallbackAction(3, $sceneClass); }
+    public static function swapScene(string $sceneClass): TuiCallbackAction { return new TuiCallbackAction(3, $sceneClass); }
     public static function popScene(): TuiCallbackAction { return new TuiCallbackAction(2, null); }
 }
 final class TuiCallbackAction { public function __construct(public int $kind, public mixed $data) {} }
@@ -35,7 +35,9 @@ function runTui(?string $startScene = null)
         "\n", "\r" => new KeyInfo(KeyKind::Enter, null), 
         "\010", "\177" => new KeyInfo(KeyKind::BackSpace, null), 
         default => new KeyInfo(KeyKind::Character, $char) }; };
-    try { while (true) { ($as = array_last($ss))->draw(); $he(new Event(EventKind::PreKeyHandle, null)); while ($rk() || $ki) $he(new Event(EventKind::KeyDown, $ki)); $he(new Event(EventKind::PostKeyHandle, null)); usleep(16_000); } } catch (E1) { } finally { echo "\033[?25h\033[0m\033[2J\033[H"; system('stty sane'); }
+    $dm = Terminal::getDimensions();
+    $rs = function () use (&$he, &$dm) { $nd = Terminal::getDimensions(); if ($nd->width !== $dm->width || $nd->height !== $dm->height) { $he(new Event(EventKind::Resized, null)); $dm = $nd; } };
+    try { while (true) { ($as = array_last($ss))->draw(); $rs(); $he(new Event(EventKind::PreKeyHandle, null)); while ($rk() || $ki) $he(new Event(EventKind::KeyDown, $ki)); $he(new Event(EventKind::PostKeyHandle, null)); usleep(16_000); } } catch (E1) { } finally { echo "\033[?25h\033[0m\033[2J\033[H"; system('stty sane'); }
 }
 final class Terminal {
     public static function clear(): void { echo "\033[2J\033[H"; }

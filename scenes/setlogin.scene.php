@@ -43,7 +43,7 @@ class SetLoginScene implements Scene
 
         if ($keyInfo->kind === KeyKind::Enter) {
             $this->submitPasswordChange();
-            return TuiCallbackActionFactory::navToScene(LoginScene::class);
+            return TuiCallbackActionFactory::swapScene(LoginScene::class);
         }
 
         if ($keyInfo->kind !== KeyKind::Character)
