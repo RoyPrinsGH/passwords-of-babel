@@ -16,6 +16,7 @@ interface Scene {
 final class TuiCallbackActionFactory { 
     public static function exit(): TuiCallbackAction { return new TuiCallbackAction(0, null); }
     public static function pushScene(string $sceneClass): TuiCallbackAction { return new TuiCallbackAction(1, $sceneClass); }
+    public static function navToScene(string $sceneClass): TuiCallbackAction { return new TuiCallbackAction(3, $sceneClass); }
     public static function popScene(): TuiCallbackAction { return new TuiCallbackAction(2, null); }
 }
 final class TuiCallbackAction { public function __construct(public int $kind, public mixed $data) {} }
@@ -26,7 +27,7 @@ function runTui(?string $startScene = null)
     foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator(__DIR__, FilesystemIterator::FOLLOW_SYMLINKS)) as $file) { if (!($file->isFile())) continue; if (str_ends_with($file->getFilename(), '.scene.php')) require_once $file->getPathname(); }
     $is = function (string $sc) { if (!(($rf = new ReflectionClass($sc))->implementsInterface(Scene::class)) || (($c = $rf->getConstructor()) !== null && $c->getNumberOfRequiredParameters() > 0)) throw new InvalidSceneClassException(); return $rf->newInstance(); };
     $ss = [($as = $is($startScene ?? "MainScene"))];
-    $he = function (Event $event) use (&$ss, &$as, &$is) { if (!(($ca = $as->handleEvent($event)) && (($ck = $ca->kind) || true))) return; if ($ck == 0) throw new E1(); if ($ck == 1) return assert($ca->data instanceof string) && array_push($ss, $is($ca->data)); if ($ck == 2) return array_pop($ss); };
+    $he = function (Event $event) use (&$ss, &$as, &$is) { if (!(($ca = $as->handleEvent($event)) && (($ck = $ca->kind) || true))) return; if ($ck == 0) throw new E1(); if ($ck == 1) return assert($ca->data instanceof string) && array_push($ss, $is($ca->data)); if ($ck == 3) return assert($ca->data instanceof string) && array_pop($ss) && array_push($ss, $is($ca->data)); if ($ck == 2) return array_pop($ss); };
     system('stty -icanon -echo min 0 time 1'); stream_set_blocking(STDIN, false); echo "\033[?25l";
     $ki = null;
     $rk = function () use (&$ki) { $readByte = fn() => (($tc = fread(STDIN, 1)) === '' || $tc === false) ? null : $tc; $ki = match ($char = $readByte()) { null => null, 

@@ -2,7 +2,7 @@
 
 use MyPhpTui\{Terminal, Scene, Event, TuiCallbackAction, TuiCallbackActionFactory};
 
-class PasswordOverviewScene implements Scene
+class PasswordsOverviewScene implements Scene
 {
     function draw()
     {

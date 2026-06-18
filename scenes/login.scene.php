@@ -24,6 +24,8 @@ class LoginScene implements Scene
 
         Terminal::setColor(Colour::RED);
         Terminal::writeAt($inputTextY, $inputTextX, $this->inputText);
+
+        Terminal::reset();
     }
 
     function handleEvent(Event $event): ?TuiCallbackAction
@@ -40,8 +42,10 @@ class LoginScene implements Scene
         }
 
         if ($keyInfo->kind === KeyKind::Enter) {
-            if ($this->submitLogin())
-                return TuiCallbackActionFactory::pushScene(PasswordOverviewScene::class);
+            if ($this->submitLogin()) {
+                $this->inputText = "";
+                return TuiCallbackActionFactory::pushScene(PasswordsOverviewScene::class);
+            }
 
             $this->inputText = "";
             goto noAction;
@@ -63,6 +67,7 @@ class LoginScene implements Scene
     {
         global $CONFIG;
         assert($CONFIG instanceof PasswordsOfBabelConfig);
+
         return password_verify($this->inputText, $CONFIG->passwordHash);
     }
 }
