@@ -6,7 +6,7 @@ class PasswordsOfBabelConfig
 {
     public function __construct(
         public string $passwordHash,
-        public string $connectionString,
+        public array $encryptedPasswords,
     ) {}
 }
 
@@ -16,7 +16,7 @@ $CONFIG = MyPhpTui\StorageApi::load($CONFIGPATH, PasswordsOfBabelConfig::class);
 if ($CONFIG === null) {
     $CONFIG = new PasswordsOfBabelConfig(
         passwordHash: "",
-        connectionString: "test"
+        encryptedPasswords: []
     );
 
     MyPhpTui\StorageApi::store($CONFIGPATH, $CONFIG);

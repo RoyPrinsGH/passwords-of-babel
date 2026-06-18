@@ -2,7 +2,7 @@
 
 use MyPhpTui\{Colour, Terminal, Scene, Event, EventKind, Direction, KeyInfo, KeyKind, TuiCallbackAction, TuiCallbackActionFactory};
 
-class PasswordsOverviewScene implements Scene
+class PasswordOverviewScene implements Scene
 {
     private int $pageIndex = 0;
     private int $rowIndex = 0;
@@ -86,8 +86,12 @@ class PasswordsOverviewScene implements Scene
                 assert($keyInfo->data instanceof string);
                 $pressedKey = $keyInfo->data;
 
-                if ($pressedKey == 'd')
-                    $this->deleteCurrent();
+                switch ($pressedKey) {
+                    case 'a':
+                        return TuiCallbackActionFactory::pushScene(AddPasswordScene::class);
+                    case 'd':
+                        $this->deleteCurrent();
+                }
 
             default:
                 goto noAction;

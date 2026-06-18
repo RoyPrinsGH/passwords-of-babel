@@ -43,8 +43,10 @@ class LoginScene implements Scene
 
         if ($keyInfo->kind === KeyKind::Enter) {
             if ($this->submitLogin()) {
+                global $KEY;
+                $KEY = $this->inputText;
                 $this->inputText = "";
-                return TuiCallbackActionFactory::pushScene(PasswordsOverviewScene::class);
+                return TuiCallbackActionFactory::pushScene(PasswordOverviewScene::class);
             }
 
             $this->inputText = "";
