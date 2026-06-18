@@ -70,4 +70,4 @@ class MainScene implements Scene
     }
 }
 
-runTui(\MainScene::class);
+runTui(MainScene::class);
