@@ -96,6 +96,11 @@ class AddPasswordScene implements Scene
 
     function addPassword()
     {
-        //
+        global $CONFIG, $CONFIGPATH, $KEY;
+        assert($CONFIG instanceof PasswordsOfBabelConfig);
+        assert($KEY instanceof string);
+
+        $CONFIG->encryptedPasswords[] = ['name' => $this->passwordNameInputText, 'value' => encrypt_string($this->passwordValueInputText, $KEY)];
+        MyPhpTui\StorageApi::store($CONFIGPATH, $CONFIG);
     }
 }
