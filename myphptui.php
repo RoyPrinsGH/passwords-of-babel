@@ -164,14 +164,14 @@ function runTui(string $sceneClass)
         throw new E3();
     $ss = [($as = $rf->newInstance())];
     $he = function (Event $event) use ($ss, $as) {
-        if (!(($callbackAction = $as->handleEvent($event))
-            && (($ck = $callbackAction->kind) || true)))
+        if (!(($ca = $as->handleEvent($event))
+            && (($ck = $ca->kind) || true)))
             return;
         if ($ck == 0)
             throw new E1();
         if ($ck == 1)
-            return assert($callbackAction->data instanceof Scene)
-                && array_push($ss, $callbackAction->data);
+            return assert($ca->data instanceof Scene)
+                && array_push($ss, $ca->data);
         if ($ck == 2)
             return array_pop($ss);
     };
