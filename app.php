@@ -10,15 +10,16 @@ class PasswordsOfBabelConfig
     ) {}
 }
 
-$CONFIG = MyPhpTui\StorageApi::load(__DIR__ . "/babel.json", PasswordsOfBabelConfig::class);
+$CONFIGPATH = __DIR__ . "/babel.json";
+$CONFIG = MyPhpTui\StorageApi::load($CONFIGPATH, PasswordsOfBabelConfig::class);
 
 if ($CONFIG === null) {
     $CONFIG = new PasswordsOfBabelConfig(
-        passwordHash: password_hash("changeme!", PASSWORD_BCRYPT),
+        passwordHash: "",
         connectionString: "test"
     );
 
-    MyPhpTui\StorageApi::store(__DIR__ . "/babel.json", $CONFIG);
+    MyPhpTui\StorageApi::store($CONFIGPATH, $CONFIG);
 }
 
 MyPhpTui\runTui();
