@@ -142,20 +142,22 @@ class E3 extends Exception {}
 
 function runTui(string $sceneClass)
 {
-    function rk(): ?KeyInfo
-    {
+    $ki = null;
+    $rk = function () use (&$ki) {
         $readByte = fn() => (($tc = fread(STDIN, 1)) === '' || $tc === false) ? null : $tc;
-        if (($char = $readByte()) === null) return null;
-        if ($char !== "\033") return new KeyInfo(KeyKind::Character, $char);
-        return new KeyInfo(...match ("\033" .  ($readByte() ?? '') . ($readByte() ?? '')) {
-            "\033" => [KeyKind::Escape, null],
-            "\033[A" => [KeyKind::Direction, Direction::Up],
-            "\033[B" => [KeyKind::Direction, Direction::Down],
-            "\033[C" => [KeyKind::Direction, Direction::Right],
-            "\033[D" => [KeyKind::Direction, Direction::Left],
-            default => [KeyKind::Unknown, null],
-        });
-    }
+        $ki = match ($char = $readByte()) {
+            null => null,
+            "\033" => new KeyInfo(...match (($readByte() ?? '') . ($readByte() ?? '')) {
+                "" => [KeyKind::Escape, null],
+                "[A" => [KeyKind::Direction, Direction::Up],
+                "[B" => [KeyKind::Direction, Direction::Down],
+                "[C" => [KeyKind::Direction, Direction::Right],
+                "[D" => [KeyKind::Direction, Direction::Left],
+                default => [KeyKind::Unknown, null],
+            }),
+            default => new KeyInfo(KeyKind::Character, $char),
+        };
+    };
     if (!(($rf = new ReflectionClass($sceneClass))->implementsInterface(Scene::class)))
         throw new E2();
     if (($c = $rf->getConstructor()) !== null && $c->getNumberOfRequiredParameters() > 0)
@@ -180,7 +182,7 @@ function runTui(string $sceneClass)
         while (true) {
             ($as = array_last($ss))->draw();
             $he(new Event(EventKind::PreKeyHandle, null));
-            while ($ki = rk()) $he(new Event(EventKind::KeyDown, $ki));
+            while ($rk() || $ki) $he(new Event(EventKind::KeyDown, $ki));
             $he(new Event(EventKind::PostKeyHandle, null));
             usleep(16_000);
         }
