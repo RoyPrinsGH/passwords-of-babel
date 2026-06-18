@@ -2,16 +2,16 @@
 
 use MyPhpTui\{Terminal, Scene, Event, TuiCallbackAction, TuiCallbackActionFactory};
 
-class MainScene implements Scene
+class PasswordOverviewScene implements Scene
 {
     function draw()
     {
         Terminal::clear();
+        echo "lol";
     }
 
     function handleEvent(Event $event): ?TuiCallbackAction
     {
-        // Just push the login scene
-        return TuiCallbackActionFactory::pushScene(LoginScene::class);
+        return null;
     }
 }

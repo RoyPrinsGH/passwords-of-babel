@@ -2,13 +2,23 @@
 
 require_once __DIR__ . '/myphptui.php';
 
-class AppState
+class PasswordsOfBabelConfig
 {
-    public int $x = 0;
-    public int $y = 0;
-    public array $passwords = [];
+    public function __construct(
+        public string $passwordHash,
+        public string $connectionString,
+    ) {}
 }
 
-$APPSTATE = new AppState();
+$CONFIG = MyPhpTui\StorageApi::load(__DIR__ . "/babel.json", PasswordsOfBabelConfig::class);
+
+if ($CONFIG === null) {
+    $CONFIG = new PasswordsOfBabelConfig(
+        passwordHash: password_hash("changeme!", PASSWORD_BCRYPT),
+        connectionString: "test"
+    );
+
+    MyPhpTui\StorageApi::store(__DIR__ . "/babel.json", $CONFIG);
+}
 
 MyPhpTui\runTui();
