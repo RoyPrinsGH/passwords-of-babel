@@ -11,26 +11,6 @@ interface Scene
     public function handleEvent(Event $event): ?TuiCallbackAction;
 }
 
-class SceneStack
-{
-    public array $scenes = [];
-
-    public function getTopScene(): ?Scene
-    {
-        return array_last($this->scenes);
-    }
-
-    public function pushScene(Scene $scene)
-    {
-        array_push($this->scenes, $scene);
-    }
-
-    public function popScene()
-    {
-        array_pop($this->scenes);
-    }
-}
-
 class Colour
 {
     public const BLACK = 30;
@@ -91,24 +71,6 @@ class Terminal
     }
 }
 
-class EventFactory
-{
-    public static function preKeyHandle(): Event
-    {
-        return new Event(EventKind::PreKeyHandle, null);
-    }
-
-    public static function postKeyHandle(): Event
-    {
-        return new Event(EventKind::PostKeyHandle, null);
-    }
-
-    public static function keyDown(KeyInfo $keyInfo): Event
-    {
-        return new Event(EventKind::KeyDown, $keyInfo);
-    }
-}
-
 class Event
 {
     public function __construct(
@@ -152,35 +114,35 @@ class TuiCallbackActionFactory
 {
     public static function exit(): TuiCallbackAction
     {
-        return new TuiCallbackAction(TuiCallbackActionKind::Exit, null);
+        return new TuiCallbackAction(0, null);
     }
 
     public static function pushScene(Scene $scene): TuiCallbackAction
     {
-        return new TuiCallbackAction(TuiCallbackActionKind::PushScene, $scene);
+        return new TuiCallbackAction(1, $scene);
+    }
+
+    public static function popScene(): TuiCallbackAction
+    {
+        return new TuiCallbackAction(2, null);
     }
 }
 
 class TuiCallbackAction
 {
     public function __construct(
-        public TuiCallbackActionKind $kind,
+        public int $kind,
         public mixed $data,
     ) {}
 }
 
-enum TuiCallbackActionKind
-{
-    case Exit;
-    case PushScene;
-    case PopScene;
-}
-
-class TuiExitException extends Exception {}
+class E1 extends Exception {}
+class E2 extends Exception {}
+class E3 extends Exception {}
 
 function runTui(string $sceneClass)
 {
-    function readKey(): ?KeyInfo
+    function rk(): ?KeyInfo
     {
         $readByte = fn() => (($tc = fread(STDIN, 1)) === '' || $tc === false) ? null : $tc;
         if (($char = $readByte()) === null) return null;
@@ -195,35 +157,34 @@ function runTui(string $sceneClass)
         });
     }
     if (!(($rf = new ReflectionClass($sceneClass))->implementsInterface(Scene::class)))
-        throw new Exception("Given class is not a Scene");
+        throw new E2();
     if (($c = $rf->getConstructor()) !== null && $c->getNumberOfRequiredParameters() > 0)
-        throw new Exception("Given class has a non-trivial constructor");
-    ($ss = new SceneStack())->pushScene($rf->newInstance());
-    $as = $ss->getTopScene();
+        throw new E3();
+    $ss = [($as = $rf->newInstance())];
     $he = function (Event $event) use ($ss, $as) {
-        if (!($callbackAction = $as->handleEvent($event))) return;
-        switch ($callbackAction->kind) {
-            case TuiCallbackActionKind::Exit:
-                throw new TuiExitException();
-            case TuiCallbackActionKind::PopScene:
-                return $ss->popScene();
-            case TuiCallbackActionKind::PushScene:
-                assert($callbackAction->data instanceof Scene);
-                return $ss->pushScene($callbackAction->data);
-        }
+        if (!(($callbackAction = $as->handleEvent($event))
+            && (($ck = $callbackAction->kind) || true)))
+            return;
+        if ($ck == 0)
+            throw new E1();
+        if ($ck == 1)
+            return assert($callbackAction->data instanceof Scene)
+                && array_push($ss, $callbackAction->data);
+        if ($ck == 2)
+            return array_pop($ss);
     };
     system('stty -icanon -echo min 0 time 1');
     stream_set_blocking(STDIN, false);
     echo "\033[?25l";
     try {
         while (true) {
-            ($as = $ss->getTopScene())->draw();
-            $he(EventFactory::preKeyHandle());
-            while ($ki = readKey()) $he(EventFactory::keyDown($ki));
-            $he(EventFactory::postKeyHandle());
+            ($as = array_last($ss))->draw();
+            $he(new Event(EventKind::PreKeyHandle, null));
+            while ($ki = rk()) $he(new Event(EventKind::KeyDown, $ki));
+            $he(new Event(EventKind::PostKeyHandle, null));
             usleep(16_000);
         }
-    } catch (TuiExitException) {
+    } catch (E1) {
     } finally {
         echo "\033[?25h\033[0m\033[2J\033[H";
         system('stty sane');
