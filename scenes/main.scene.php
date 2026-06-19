@@ -18,8 +18,8 @@ class MainScene implements Scene
         assert($CONFIG instanceof PasswordsOfBabelConfig);
 
         if ($CONFIG->passwordHash === "")
-            return TuiCallbackActionFactory::pushScene(SetLoginScene::class);
+            return TuiCallbackActionFactory::swapScene(SetLoginScene::class);
 
-        return TuiCallbackActionFactory::pushScene(LoginScene::class);
+        return TuiCallbackActionFactory::swapScene(LoginScene::class);
     }
 }

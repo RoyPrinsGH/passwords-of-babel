@@ -61,14 +61,9 @@ final class EventFactory
         return new Event(EventKind::PostKeyHandle, null);
     }
 
-    public static function view(): Event
+    public static function resize(): Event
     {
-        return new Event(EventKind::View, null);
-    }
-
-    public static function unView(): Event
-    {
-        return new Event(EventKind::UnView, null);
+        return new Event(EventKind::Resize, null);
     }
 }
 
@@ -77,8 +72,7 @@ enum EventKind
     case PreKeyHandle;
     case KeyDown;
     case PostKeyHandle;
-    case View;
-    case UnView;
+    case Resize;
 }
 
 final class KeyInfo
@@ -116,7 +110,7 @@ interface Scene
 
 final class SceneManager
 {
-    private array $scenes;
+    public array $scenes;
 
     public function __construct(string $initialSceneClass)
     {
@@ -139,12 +133,6 @@ final class SceneManager
         $this->pushScene($sceneClass);
     }
 
-    public function getTopScene(): Scene
-    {
-        return array_last($this->scenes)
-            ?? throw new EmptySceneStackException();
-    }
-
     private static function instantiateScene(string $sceneClass): Scene
     {
         $class = new ReflectionClass($sceneClass);
@@ -152,7 +140,7 @@ final class SceneManager
         if (!$class->implementsInterface(Scene::class))
             throw new InvalidSceneClassException();
 
-        if (!($class->getConstructor()?->getNumberOfRequiredParameters() ?? 0 === 0))
+        if (!(($class->getConstructor()?->getNumberOfRequiredParameters() ?? 0) === 0))
             throw new InvalidSceneClassException();
 
         return $class->newInstance();
@@ -178,6 +166,7 @@ enum TuiCallbackActionKind
 {
     case Exit;
     case SceneAction;
+    case ConsumeEvent;
 }
 
 final class TuiCallbackActionFactory
@@ -209,6 +198,11 @@ final class TuiCallbackActionFactory
             TuiCallbackActionKind::SceneAction,
             new SceneAction(SceneActionKind::PopScene, null),
         );
+    }
+
+    public static function consumeEvent(): TuiCallbackAction
+    {
+        return new TuiCallbackAction(TuiCallbackActionKind::ConsumeEvent, null);
     }
 }
 
@@ -302,24 +296,44 @@ function runTui(?string $startSceneClass = null)
     echo "\033[?25l";
 
     try {
-        $activeScene = $sceneManager->getTopScene();
+        $storedDimensions = Terminal::getDimensions();
         $queuedSceneAction = null;
 
         $handleEvent =
             function (Event $event)
-            use (&$activeScene, &$queuedSceneAction) {
-                $callbackAction = $activeScene->handleEvent($event);
-                unset($event);
-                switch ($callbackAction?->kind) {
-                    case TuiCallbackActionKind::Exit:
-                        throw new TuiExitException();
-                    case TuiCallbackActionKind::SceneAction:
-                        assert(($queuedSceneAction = $callbackAction->data) instanceof SceneAction);
+            use (&$sceneManager, &$queuedSceneAction) {
+                foreach (array_reverse($sceneManager->scenes) as $scene) {
+                    $callbackAction = $scene->handleEvent($event);
+                    switch ($callbackAction?->kind) {
+                        case TuiCallbackActionKind::Exit:
+                            throw new TuiExitException();
+                        case TuiCallbackActionKind::SceneAction:
+                            $queuedSceneAction = $callbackAction->data;
+                            return;
+                        case TuiCallbackActionKind::ConsumeEvent:
+                            return;
+                        default:
+                            if ($event->kind == EventKind::KeyDown)
+                                return;
+
+                            continue;
+                    }
                 }
             };
 
         while (true) {
-            $activeScene->draw();
+            $currentDimensions = Terminal::getDimensions();
+
+            if (
+                $storedDimensions->width !== $currentDimensions->width
+                || $storedDimensions->height !== $currentDimensions->height
+            ) {
+                $handleEvent(EventFactory::resize());
+                $storedDimensions = $currentDimensions;
+            }
+
+            foreach ($sceneManager->scenes as $scene)
+                $scene->draw();
 
             $handleEvent(EventFactory::preKeyHandle());
 
@@ -329,12 +343,9 @@ function runTui(?string $startSceneClass = null)
             $handleEvent(EventFactory::postKeyHandle());
 
             if ($queuedSceneAction) {
-                $handleEvent(EventFactory::unView());
-
                 switch ($queuedSceneAction->kind) {
                     case SceneActionKind::PushScene:
-                        assert(($sceneClass = $queuedSceneAction->data) instanceof string);
-                        $sceneManager->pushScene($sceneClass);
+                        $sceneManager->pushScene($queuedSceneAction->data);
                         break;
 
                     case SceneActionKind::PopScene:
@@ -342,14 +353,9 @@ function runTui(?string $startSceneClass = null)
                         break;
 
                     case SceneActionKind::SwapScene:
-                        assert(($sceneClass = $queuedSceneAction->data) instanceof string);
-                        $sceneManager->swapScene($sceneClass);
+                        $sceneManager->swapScene($queuedSceneAction->data);
                         break;
                 }
-
-                $activeScene = $sceneManager->getTopScene();
-                $handleEvent(EventFactory::view());
-
                 $queuedSceneAction = null;
             }
 
@@ -399,6 +405,60 @@ final class Terminal
         echo $text;
     }
 
+    public static function drawRect(int $row, int $col, int $width, int $height): void
+    {
+        if ($width < 1 || $height < 1)
+            return;
+
+        $blankRow = str_pad('', $width);
+
+        for ($offset = 0; $offset < $height; $offset++)
+            self::writeAt($row + $offset, $col, $blankRow);
+    }
+
+    public static function drawBorder(int $row, int $col, int $width, int $height): void
+    {
+        if ($width < 1 || $height < 1)
+            return;
+
+        if ($height === 1) {
+            self::writeAt(
+                $row,
+                $col,
+                $width === 1
+                    ? '+'
+                    : '+' . str_repeat('-', $width - 2) . '+',
+            );
+
+            return;
+        }
+
+        $lastRow = $row + $height - 1;
+
+        if ($width === 1) {
+            self::writeAt($row, $col, '+');
+
+            for ($currentRow = $row + 1; $currentRow < $lastRow; $currentRow++)
+                self::writeAt($currentRow, $col, '|');
+
+            self::writeAt($lastRow, $col, '+');
+
+            return;
+        }
+
+        $lastCol = $col + $width - 1;
+        $horizontal = str_repeat('-', $width - 2);
+
+        self::writeAt($row, $col, '+' . $horizontal . '+');
+
+        for ($currentRow = $row + 1; $currentRow < $lastRow; $currentRow++) {
+            self::writeAt($currentRow, $col, '|');
+            self::writeAt($currentRow, $lastCol, '|');
+        }
+
+        self::writeAt($lastRow, $col, '+' . $horizontal . '+');
+    }
+
     public static function getDimensions(): Dimensions
     {
         $matches = [null, 24, 80];
@@ -421,13 +481,21 @@ final class StorageApi
 {
     public static function load(string $path, string $configClassName): ?object
     {
-        if (!is_readable($path) || !file_exists($path))
+        if (!file_exists($path))
+            return null;
+
+        if (!is_readable($path))
             throw new CannotReadFileException();
 
         if (!($json = file_get_contents($path)))
             throw new CannotReadFileException();
 
-        return new $configClassName(...json_decode($json, true, flags: 4194304));
+        $decoded = json_decode($json, true, flags: JSON_THROW_ON_ERROR);
+
+        if (!is_array($decoded))
+            throw new \UnexpectedValueException('Stored data must decode to an object payload.');
+
+        return new $configClassName(...$decoded);
     }
 
     public static function store(string $path, object $config): void
@@ -435,7 +503,12 @@ final class StorageApi
         if (!is_dir($dir = dirname($path)) || !is_writable($dir))
             throw new CannotWriteDirException();
 
-        if (!file_put_contents($path, json_encode($config, 128 | 64 | 4194304), 2))
+        $json = json_encode(
+            $config,
+            JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR,
+        );
+
+        if (file_put_contents($path, $json, LOCK_EX) === false)
             throw new CannotWriteDirException();
     }
 }

@@ -6,7 +6,14 @@ class PasswordOverviewScene implements Scene
 {
     private int $pageIndex = 0;
     private int $rowIndex = 0;
-    private array $passwords = ["test1", "test2"];
+    private array $passwords = [];
+
+    public function __construct()
+    {
+        global $CONFIG;
+        assert($CONFIG instanceof PasswordsOfBabelConfig);
+        $this->passwords = array_map(static fn(StoredPassword $pw) => $pw->name, $CONFIG->encryptedPasswords);
+    }
 
     function draw()
     {
@@ -46,14 +53,14 @@ class PasswordOverviewScene implements Scene
 
     function handleEvent(Event $event): ?TuiCallbackAction
     {
-        if ($event->kind === EventKind::View) {
+        if ($event->kind === EventKind::Resize) {
             $this->pageIndex = 0;
             $this->rowIndex = 0;
-            goto noAction;
+            return null;
         }
 
         if ($event->kind !== EventKind::KeyDown)
-            goto noAction;
+            return null;
 
         assert($event->data instanceof KeyInfo);
         $keyInfo = $event->data;
@@ -61,10 +68,10 @@ class PasswordOverviewScene implements Scene
         switch ($keyInfo->kind) {
             case KeyKind::Enter:
                 $this->revealCurrent();
-                goto noAction;
+                break;
 
             case KeyKind::Escape:
-                goto doExit;
+                return TuiCallbackActionFactory::exit();
 
             case KeyKind::Direction:
                 assert($keyInfo->data instanceof Direction);
@@ -80,7 +87,7 @@ class PasswordOverviewScene implements Scene
                     Direction::Right => $this->pageIndex = min($pageCount - 1, $this->pageIndex + 1),
                 };
 
-                goto noAction;
+                break;
 
             case KeyKind::Character:
                 assert($keyInfo->data instanceof string);
@@ -93,14 +100,13 @@ class PasswordOverviewScene implements Scene
                         $this->deleteCurrent();
                 }
 
+                break;
+
             default:
-                goto noAction;
+                break;
         }
 
-        noAction:
         return null;
-        doExit:
-        return TuiCallbackActionFactory::exit();
     }
 
     function revealCurrent()

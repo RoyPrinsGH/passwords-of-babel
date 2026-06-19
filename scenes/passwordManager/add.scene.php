@@ -10,15 +10,20 @@ class AddPasswordScene implements Scene
 
     function draw()
     {
-        Terminal::clear();
-
         $dimensions = Terminal::getDimensions();
+
+        $modalMarginX = 20;
+        $modalMarginY = 5;
+        $modalWidth = $dimensions->width - 2 * $modalMarginX;
+        $modalHeight = $dimensions->height - 2 * $modalMarginY;
+        Terminal::setColor(Colour::GREEN);
+        Terminal::drawRect($modalMarginY, $modalMarginX, $modalWidth, $modalHeight);
+        Terminal::drawBorder($modalMarginY, $modalMarginX, $modalWidth, $modalHeight);
 
         $nameText = "Please give your password a name:";
         $nameTextX = $dimensions->width / 2 - strlen($nameText) / 2;
         $nameTextY = $dimensions->height / 2 - ($this->nameLockedIn ? 3 : 1);
 
-        Terminal::setColor(Colour::GREEN);
         Terminal::writeAt($nameTextY, $nameTextX, $nameText);
 
         $passwordNameInputTextX = $dimensions->width / 2 - strlen($this->passwordNameInputText) / 2;
@@ -55,7 +60,7 @@ class AddPasswordScene implements Scene
     function handleEvent(Event $event): ?TuiCallbackAction
     {
         if ($event->kind != EventKind::KeyDown)
-            goto noAction;
+            return null;
 
         assert($event->data instanceof KeyInfo);
         $keyInfo = $event->data;
@@ -68,7 +73,7 @@ class AddPasswordScene implements Scene
 
         if ($keyInfo->kind === KeyKind::BackSpace) {
             $input = substr($input, 0, -1) ?: "";
-            goto noAction;
+            return null;
         }
 
         if ($keyInfo->kind === KeyKind::Enter) {
@@ -78,19 +83,16 @@ class AddPasswordScene implements Scene
             }
 
             $this->nameLockedIn = true;
-
-            goto noAction;
+            return null;
         }
 
         if ($keyInfo->kind !== KeyKind::Character)
-            goto noAction;
+            return null;
 
         assert($keyInfo->data instanceof string);
         $inputChar = $keyInfo->data;
 
         $input .= $inputChar;
-
-        noAction:
         return null;
     }
 
@@ -100,7 +102,12 @@ class AddPasswordScene implements Scene
         assert($CONFIG instanceof PasswordsOfBabelConfig);
         assert($KEY instanceof string);
 
-        $CONFIG->encryptedPasswords[] = ['name' => $this->passwordNameInputText, 'value' => encrypt_string($this->passwordValueInputText, $KEY)];
+        $CONFIG->encryptedPasswords[]
+            = new StoredPassword(
+                $this->passwordNameInputText,
+                encrypt_string($this->passwordValueInputText, $KEY)
+            );
+
         MyPhpTui\StorageApi::store($CONFIGPATH, $CONFIG);
     }
 }

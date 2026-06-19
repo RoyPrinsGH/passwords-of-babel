@@ -31,14 +31,14 @@ class LoginScene implements Scene
     function handleEvent(Event $event): ?TuiCallbackAction
     {
         if ($event->kind != EventKind::KeyDown)
-            goto noAction;
+            return null;
 
         assert($event->data instanceof KeyInfo);
         $keyInfo = $event->data;
 
         if ($keyInfo->kind === KeyKind::BackSpace) {
             $this->inputText = substr($this->inputText, 0, -1) ?: "";
-            goto noAction;
+            return null;
         }
 
         if ($keyInfo->kind === KeyKind::Enter) {
@@ -50,18 +50,16 @@ class LoginScene implements Scene
             }
 
             $this->inputText = "";
-            goto noAction;
+            return null;
         }
 
         if ($keyInfo->kind !== KeyKind::Character)
-            goto noAction;
+            return null;
 
         assert($keyInfo->data instanceof string);
         $inputChar = $keyInfo->data;
 
         $this->inputText .= $inputChar;
-
-        noAction:
         return null;
     }
 
@@ -69,7 +67,6 @@ class LoginScene implements Scene
     {
         global $CONFIG;
         assert($CONFIG instanceof PasswordsOfBabelConfig);
-
         return password_verify($this->inputText, $CONFIG->passwordHash);
     }
 }

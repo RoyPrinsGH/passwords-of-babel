@@ -1,5 +1,13 @@
 <?php
 
+class StoredPassword
+{
+    public function __construct(
+        public string $name,
+        public string $encryptedValue
+    ) {}
+}
+
 // shamelessly copied over from chatgpt
 
 function encrypt_string(string $plaintext, string $password): string

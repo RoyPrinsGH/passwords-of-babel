@@ -8,7 +8,12 @@ class PasswordsOfBabelConfig
     public function __construct(
         public string $passwordHash,
         public array $encryptedPasswords,
-    ) {}
+    ) {
+        $this->encryptedPasswords = array_map(
+            static fn(array $rawArray) => new StoredPassword(...$rawArray),
+            $this->encryptedPasswords,
+        );
+    }
 }
 
 $CONFIGPATH = __DIR__ . "/babel.json";
