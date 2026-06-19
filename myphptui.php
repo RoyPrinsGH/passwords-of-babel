@@ -123,24 +123,20 @@ final class SceneManager
         $this->scenes = [self::instantiateScene($initialSceneClass)];
     }
 
-    public function processAction(SceneAction $action): void
+    public function pushScene(string $sceneClass): void
     {
-        switch ($action->kind) {
-            case SceneActionKind::PushScene:
-                assert($action->data instanceof string);
-                $this->scenes[] = self::instantiateScene($action->data);
-                return;
+        $this->scenes[] = self::instantiateScene($sceneClass);
+    }
 
-            case SceneActionKind::PopScene:
-                array_pop($this->scenes);
-                return;
+    public function popScene(): void
+    {
+        array_pop($this->scenes);
+    }
 
-            case SceneActionKind::SwapScene:
-                assert($action->data instanceof string);
-                array_pop($this->scenes);
-                $this->scenes[] = self::instantiateScene($action->data);
-                return;
-        }
+    public function swapScene(string $sceneClass): void
+    {
+        $this->popScene();
+        $this->pushScene($sceneClass);
     }
 
     public function getTopScene(): Scene
@@ -317,14 +313,8 @@ function runTui(?string $startSceneClass = null)
                 switch ($callbackAction?->kind) {
                     case TuiCallbackActionKind::Exit:
                         throw new TuiExitException();
-
                     case TuiCallbackActionKind::SceneAction:
-                        assert($callbackAction->data instanceof SceneAction);
-                        $queuedSceneAction = $callbackAction->data;
-                        return;
-
-                    default:
-                        return;
+                        assert(($queuedSceneAction = $callbackAction->data) instanceof SceneAction);
                 }
             };
 
@@ -341,7 +331,21 @@ function runTui(?string $startSceneClass = null)
             if ($queuedSceneAction) {
                 $handleEvent(EventFactory::unView());
 
-                $sceneManager->processAction($queuedSceneAction);
+                switch ($queuedSceneAction->kind) {
+                    case SceneActionKind::PushScene:
+                        assert(($sceneClass = $queuedSceneAction->data) instanceof string);
+                        $sceneManager->pushScene($sceneClass);
+                        break;
+
+                    case SceneActionKind::PopScene:
+                        $sceneManager->popScene();
+                        break;
+
+                    case SceneActionKind::SwapScene:
+                        assert(($sceneClass = $queuedSceneAction->data) instanceof string);
+                        $sceneManager->swapScene($sceneClass);
+                        break;
+                }
 
                 $activeScene = $sceneManager->getTopScene();
                 $handleEvent(EventFactory::view());
