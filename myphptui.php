@@ -44,6 +44,14 @@ final class Event
     ) {}
 }
 
+final class CustomEventData
+{
+    public function __construct(
+        public string $name,
+        public mixed $data = null,
+    ) {}
+}
+
 final class EventFactory
 {
     public static function preKeyHandle(): Event
@@ -65,6 +73,11 @@ final class EventFactory
     {
         return new Event(EventKind::Resize, null);
     }
+
+    public static function custom(CustomEventData $data): Event
+    {
+        return new Event(EventKind::Custom, $data);
+    }
 }
 
 enum EventKind
@@ -73,6 +86,22 @@ enum EventKind
     case KeyDown;
     case PostKeyHandle;
     case Resize;
+    case Custom;
+}
+
+final class EventBus
+{
+    private static array $queuedEvents = [];
+
+    public static function emit(string $name, mixed $data = null): void
+    {
+        self::$queuedEvents[] = new CustomEventData($name, $data);
+    }
+
+    public static function next(): ?CustomEventData
+    {
+        return array_shift(self::$queuedEvents) ?: null;
+    }
 }
 
 final class KeyInfo
@@ -307,11 +336,14 @@ function runTui(?string $startSceneClass = null)
                     switch ($callbackAction?->kind) {
                         case TuiCallbackActionKind::Exit:
                             throw new TuiExitException();
+
                         case TuiCallbackActionKind::SceneAction:
                             $queuedSceneAction = $callbackAction->data;
                             return;
+
                         case TuiCallbackActionKind::ConsumeEvent:
                             return;
+
                         default:
                             if ($event->kind == EventKind::KeyDown)
                                 return;
@@ -342,7 +374,11 @@ function runTui(?string $startSceneClass = null)
 
             $handleEvent(EventFactory::postKeyHandle());
 
+            while ($customEvent = EventBus::next())
+                $handleEvent(EventFactory::custom($customEvent));
+
             if ($queuedSceneAction) {
+
                 switch ($queuedSceneAction->kind) {
                     case SceneActionKind::PushScene:
                         $sceneManager->pushScene($queuedSceneAction->data);
@@ -356,6 +392,7 @@ function runTui(?string $startSceneClass = null)
                         $sceneManager->swapScene($queuedSceneAction->data);
                         break;
                 }
+
                 $queuedSceneAction = null;
             }
 

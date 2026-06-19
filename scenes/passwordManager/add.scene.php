@@ -1,6 +1,6 @@
 <?php
 
-use MyPhpTui\{Colour, Terminal, Scene, Event, EventKind, KeyInfo, KeyKind, TuiCallbackAction, TuiCallbackActionFactory};
+use MyPhpTui\{Colour, Terminal, Scene, Event, EventBus, EventKind, KeyInfo, KeyKind, TuiCallbackAction, TuiCallbackActionFactory};
 
 class AddPasswordScene implements Scene
 {
@@ -79,6 +79,7 @@ class AddPasswordScene implements Scene
         if ($keyInfo->kind === KeyKind::Enter) {
             if ($this->nameLockedIn) {
                 $this->addPassword();
+                EventBus::emit('passwords.updated');
                 return TuiCallbackActionFactory::popScene();
             }
 

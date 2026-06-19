@@ -1,6 +1,6 @@
 <?php
 
-use MyPhpTui\{Colour, Terminal, Scene, Event, EventKind, Direction, KeyInfo, KeyKind, TuiCallbackAction, TuiCallbackActionFactory};
+use MyPhpTui\{Colour, Terminal, Scene, Event, EventKind, CustomEventData, Direction, KeyInfo, KeyKind, TuiCallbackAction, TuiCallbackActionFactory};
 
 class PasswordOverviewScene implements Scene
 {
@@ -10,9 +10,7 @@ class PasswordOverviewScene implements Scene
 
     public function __construct()
     {
-        global $CONFIG;
-        assert($CONFIG instanceof PasswordsOfBabelConfig);
-        $this->passwords = array_map(static fn(StoredPassword $pw) => $pw->name, $CONFIG->encryptedPasswords);
+        $this->refreshPasswords();
     }
 
     function draw()
@@ -53,6 +51,15 @@ class PasswordOverviewScene implements Scene
 
     function handleEvent(Event $event): ?TuiCallbackAction
     {
+        if ($event->kind === EventKind::Custom) {
+            assert($event->data instanceof CustomEventData);
+
+            if ($event->data->name === 'passwords.updated')
+                $this->refreshPasswords();
+
+            return null;
+        }
+
         if ($event->kind === EventKind::Resize) {
             $this->pageIndex = 0;
             $this->rowIndex = 0;
@@ -117,5 +124,12 @@ class PasswordOverviewScene implements Scene
     function deleteCurrent()
     {
         //
+    }
+
+    private function refreshPasswords(): void
+    {
+        global $CONFIG;
+        assert($CONFIG instanceof PasswordsOfBabelConfig);
+        $this->passwords = array_map(static fn(StoredPassword $pw) => $pw->name, $CONFIG->encryptedPasswords);
     }
 }
