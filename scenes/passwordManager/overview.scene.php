@@ -46,7 +46,7 @@ class PasswordOverviewScene implements Scene
 
     function handleEvent(Event $event): ?TuiCallbackAction
     {
-        if ($event->kind === EventKind::Resized) {
+        if ($event->kind === EventKind::View) {
             $this->pageIndex = 0;
             $this->rowIndex = 0;
             goto noAction;
