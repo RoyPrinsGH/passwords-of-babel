@@ -9,5 +9,13 @@ presenting "Passwords of Babel", the beautiful PHP TUI app that stores your pass
 - just uhh just.. just do `php app.php`
 - ponder your life choices
 
+# faq totally not meant to glaze myself
+- Q: Did you write a PHP TUI library just for this pos?
+- A: Yes :sunglasses:
+- Q: AI USAGE????? DID YOU SLOPP???????????
+- A: crypto.php and babel.php were made by GPT 5.4 XHigh (im poor) but I made the lib all by myself also fun fact you should check out commit "my cool app 8" and then see what myphptui.php looked like this is how you know I didn't slop but also it became unmaintainable (php moment amirite) so i rewrote cleaner
+
+
 **DISCLAIMER**
+
 DON'T ACTUALLY USE THIS
