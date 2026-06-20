@@ -9,9 +9,9 @@ class MainScene implements Scene
         $isPasswordUnset = (Config::get()->passwordHash === "");
 
         if ($isPasswordUnset) {
-            EventBus::emit(BuiltinEvents::SCENE_SWAP, RegisterScene::class);
+            EventBus::emit(BuiltinEvents::SCENE_SWAP, [RegisterScene::class]);
         } else {
-            EventBus::emit(BuiltinEvents::SCENE_SWAP, LoginScene::class);
+            EventBus::emit(BuiltinEvents::SCENE_SWAP, [LoginScene::class]);
         }
     }
 

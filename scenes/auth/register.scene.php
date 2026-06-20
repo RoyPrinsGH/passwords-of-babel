@@ -39,7 +39,7 @@ class RegisterScene implements Scene, KeyDownHandler
 
             case KeyKind::Enter:
                 $this->submitPasswordChange();
-                EventBus::emit(BuiltinEvents::SCENE_SWAP, LoginScene::class);
+                EventBus::emit(BuiltinEvents::SCENE_SWAP, [LoginScene::class]);
                 return;
 
             case KeyKind::Character:

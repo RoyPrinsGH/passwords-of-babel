@@ -57,7 +57,7 @@ class LoginScene implements Scene, KeyDownHandler
 
         if (password_verify($input, $requiredHash)) {
             EncryptionKey::set($input);
-            EventBus::emit(BuiltinEvents::SCENE_SWAP, PasswordOverviewScene::class);
+            EventBus::emit(BuiltinEvents::SCENE_SWAP, [PasswordOverviewScene::class]);
         }
 
         $this->inputText = "";

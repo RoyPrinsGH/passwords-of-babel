@@ -111,9 +111,9 @@ final class SceneManager
         $this->scenes = [self::instantiateScene($baseSceneClass)];
     }
 
-    public function pushSceneAt(int $index, string $sceneClass): void
+    public function pushSceneAt(int $index, string $sceneClass, array $args = []): void
     {
-        array_splice($this->scenes, $index + 1, replacement: [self::instantiateScene($sceneClass)]);
+        array_splice($this->scenes, $index + 1, replacement: [self::instantiateScene($sceneClass, $args)]);
     }
 
     public function popSceneAt(int $index): void
@@ -121,22 +121,22 @@ final class SceneManager
         array_splice($this->scenes, $index - 1);
     }
 
-    public function swapSceneAt(int $index, string $sceneClass): void
+    public function swapSceneAt(int $index, string $sceneClass, array $args = []): void
     {
-        array_splice($this->scenes, $index, replacement: [self::instantiateScene($sceneClass)]);
+        array_splice($this->scenes, $index, replacement: [self::instantiateScene($sceneClass, $args)]);
     }
 
-    private static function instantiateScene(string $sceneClass): Scene
+    private static function instantiateScene(string $sceneClass, array $args = []): Scene
     {
         $class = new ReflectionClass($sceneClass);
 
         if (!$class->implementsInterface(Scene::class))
             throw new InvalidSceneClassException();
 
-        if (!(($class->getConstructor()?->getNumberOfRequiredParameters() ?? 0) === 0))
+        if (!(($class->getConstructor()?->getNumberOfRequiredParameters() ?? 0) === count($args)))
             throw new InvalidSceneClassException();
 
-        return $class->newInstance();
+        return $class->newInstance(...$args);
     }
 }
 
@@ -242,13 +242,13 @@ function runTui(?string $startSceneClass = null)
                 foreach (array_reverse($sceneManager->scenes) as $sceneIndex => $scene) {
                     switch ($event->name) {
                         case BuiltinEvents::SCENE_PUSH:
-                            $sceneManager->pushSceneAt($sceneIndex, $event->data);
+                            $sceneManager->pushSceneAt($sceneIndex, ...$event->data);
                             break;
                         case BuiltinEvents::SCENE_POP:
                             $sceneManager->popSceneAt($sceneIndex);
                             break;
                         case BuiltinEvents::SCENE_SWAP:
-                            $sceneManager->swapSceneAt($sceneIndex, $event->data);
+                            $sceneManager->swapSceneAt($sceneIndex, ...$event->data);
                             break;
                         case BuiltinEvents::EXIT:
                             break 4;

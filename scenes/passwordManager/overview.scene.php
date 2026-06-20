@@ -58,7 +58,10 @@ implements
     function onCustomEvent(string $eventName, mixed $eventData)
     {
 
-        if ($eventName === AddPasswordScene::EVENT_PASSWORD_UPDATED) {
+        if (
+            $eventName === AddPasswordScene::EVENT_PASSWORD_UPDATED
+            || $eventName === ConfirmDeletionScene::EVENT_PASSWORD_DELETED
+        ) {
             $this->refreshPasswords();
         }
     }
@@ -73,7 +76,7 @@ implements
     {
         switch ($keyInfo->kind) {
             case KeyKind::Enter:
-                $this->revealCurrent();
+                EventBus::emit(BuiltinEvents::SCENE_PUSH, [RevealPasswordScene::class]);
                 return;
 
             case KeyKind::Escape:
@@ -98,10 +101,12 @@ implements
 
                 switch ($pressedKey) {
                     case 'a':
-                        EventBus::emit(BuiltinEvents::SCENE_PUSH, AddPasswordScene::class);
+                        EventBus::emit(BuiltinEvents::SCENE_PUSH, [AddPasswordScene::class]);
                         break;
                     case 'd':
-                        $this->deleteCurrent();
+                        $dimensions = Terminal::getDimensions();
+                        $passwordsPerPage = $dimensions->height - 5;
+                        EventBus::emit(BuiltinEvents::SCENE_PUSH, [ConfirmDeletionScene::class, [$this->pageIndex * $passwordsPerPage + $this->rowIndex]]);
                         break;
                 }
 
@@ -149,11 +154,6 @@ implements
             : $passwordsPerPage;
 
         $this->rowIndex = min($passwordsShown - 1, $this->rowIndex + 1);
-    }
-
-    function revealCurrent()
-    {
-        //
     }
 
     function deleteCurrent()
