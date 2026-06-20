@@ -67,7 +67,13 @@ implements
 
     function deleteCurrent()
     {
-        PasswordsOfBabelData::update(fn($data) => array_splice($data->encryptedPasswords, $this->passwordIndex, 1));
+        PasswordsOfBabelData::update(
+            fn($data) => array_splice(
+                $data->encryptedPasswords,
+                $this->passwordIndex,
+                1
+            )
+        );
         EventBus::emit(self::EVENT_PASSWORD_DELETED);
     }
 }

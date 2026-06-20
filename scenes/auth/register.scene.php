@@ -1,6 +1,14 @@
 <?php
 
-use MyPhpTui\{BuiltinEvents, Terminal, Colour, Config, Scene, EventBus, KeyDownHandler, MethodEventHandlers, KeyInfo, KeyKind};
+use MyPhpTui\BuiltinEvents;
+use MyPhpTui\Colour;
+use MyPhpTui\EventBus;
+use MyPhpTui\KeyDownHandler;
+use MyPhpTui\KeyInfo;
+use MyPhpTui\KeyKind;
+use MyPhpTui\MethodEventHandlers;
+use MyPhpTui\Scene;
+use MyPhpTui\Terminal;
 
 class RegisterScene implements Scene, KeyDownHandler
 {

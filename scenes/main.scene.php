@@ -1,6 +1,9 @@
 <?php
 
-use MyPhpTui\{BuiltinEvents, Terminal, Scene, Event, EventBus};
+use MyPhpTui\BuiltinEvents;
+use MyPhpTui\EventBus;
+use MyPhpTui\Scene;
+use MyPhpTui\Terminal;
 
 class MainScene implements Scene
 {
@@ -21,7 +24,7 @@ class MainScene implements Scene
         Terminal::writeAt(0, 0, "Loading...");
     }
 
-    function handleEvent(Event $event)
+    function handleEvent(mixed $event)
     {
         //
     }

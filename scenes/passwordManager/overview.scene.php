@@ -26,20 +26,30 @@ implements
     private int $pageIndex = 0;
     private int $rowIndex = 0;
     private array $passwords = [];
+    private Dimensions $cachedDimensions;
+    private int $passwordsPerPage = 1;
+    private int $passwordIndexOffset = 0;
+    private int $pageCount = 1;
 
     public function __construct()
     {
-        $this->refreshPasswords();
+        $this->cachedDimensions = Terminal::getDimensions();
+        $this->reloadPasswords();
+        $this->onResize(Terminal::getDimensions());
     }
 
     function draw()
     {
         Terminal::clear();
-
-        $dimensions = Terminal::getDimensions();
-
         Terminal::setColor(Colour::BLACK, Colour::BG_WHITE);
-        Terminal::writeAt(1, 1, str_pad(" Arrow keys to navigate | 'A' to add | 'ENTER' to reveal | 'D' to delete | 'ESC' to quit", $dimensions->width));
+        Terminal::writeAt(
+            1,
+            1,
+            str_pad(
+                " Arrow keys to navigate | 'A' to add | 'ENTER' to reveal | 'D' to delete | 'ESC' to quit",
+                $this->cachedDimensions->width
+            )
+        );
         Terminal::reset();
 
         if (count($this->passwords) == 0) {
@@ -49,22 +59,22 @@ implements
             return;
         }
 
-        $passwordsPerPage = max(1, $dimensions->height - 5);
-
-        for ($visualIndex = 0; $visualIndex < $passwordsPerPage; $visualIndex++) {
+        for ($visualIndex = 0; $visualIndex < $this->passwordsPerPage; $visualIndex++) {
             Terminal::setColor(Colour::WHITE);
 
             if ($this->rowIndex == $visualIndex)
                 Terminal::setColor(Colour::RED);
 
-            if ($passwordToShow = $this->passwords[$this->pageIndex * $passwordsPerPage + $visualIndex] ?? null)
+            if ($passwordToShow = $this->passwords[$this->passwordIndexOffset + $visualIndex] ?? null)
                 Terminal::writeAt(3 + $visualIndex, 1, $passwordToShow);
         }
 
         Terminal::reset();
-
-        $pageCount = (int) (count($this->passwords) / $passwordsPerPage) + 1;
-        Terminal::writeAt($dimensions->height - 1, 1, "Page " . $this->pageIndex + 1 . " / " . $pageCount);
+        Terminal::writeAt(
+            $this->cachedDimensions->height - 1,
+            1,
+            "Page " . $this->pageIndex + 1 . " / " . $this->pageCount
+        );
     }
 
     function onCustomEvent(string $eventName, mixed $eventData)
@@ -74,14 +84,18 @@ implements
             $eventName === AddPasswordScene::EVENT_PASSWORD_UPDATED
             || $eventName === ConfirmDeletionScene::EVENT_PASSWORD_DELETED
         ) {
-            $this->refreshPasswords();
+            $this->reloadPasswords();
         }
     }
 
-    function onResize(Dimensions $_)
+    function onResize(Dimensions $dimensions)
     {
         $this->pageIndex = 0;
         $this->rowIndex = 0;
+        $this->cachedDimensions = $dimensions;
+        $this->passwordsPerPage = max(1, $this->cachedDimensions->height - 5);
+        $this->pageCount = (int) ((count($this->passwords) - 1) / $this->passwordsPerPage) + 1;
+        $this->passwordIndexOffset = $this->pageIndex * $this->passwordsPerPage;
     }
 
     function onKeyDown(KeyInfo $keyInfo)
@@ -113,12 +127,17 @@ implements
 
                 switch ($pressedKey) {
                     case 'a':
-                        EventBus::emit(BuiltinEvents::SCENE_PUSH, [AddPasswordScene::class]);
+                        EventBus::emit(
+                            BuiltinEvents::SCENE_PUSH,
+                            [AddPasswordScene::class]
+                        );
                         break;
+
                     case 'd':
-                        $dimensions = Terminal::getDimensions();
-                        $passwordsPerPage = $dimensions->height - 5;
-                        EventBus::emit(BuiltinEvents::SCENE_PUSH, [ConfirmDeletionScene::class, [$this->pageIndex * $passwordsPerPage + $this->rowIndex]]);
+                        EventBus::emit(
+                            BuiltinEvents::SCENE_PUSH,
+                            [ConfirmDeletionScene::class, [$this->passwordIndexOffset + $this->rowIndex]]
+                        );
                         break;
                 }
 
@@ -129,21 +148,17 @@ implements
     function pageLeft()
     {
         $this->pageIndex = max(0, $this->pageIndex - 1);
+        $this->passwordIndexOffset = $this->pageIndex * $this->passwordsPerPage;
     }
 
     function pageRight()
     {
-        $dimensions = Terminal::getDimensions();
+        $this->pageIndex = min($this->pageCount - 1, $this->pageIndex + 1);
+        $this->passwordIndexOffset = $this->pageIndex * $this->passwordsPerPage;
 
-        $passwordsPerPage = $dimensions->height - 5;
-
-        $pageCount = (int) (count($this->passwords) / $passwordsPerPage) + 1;
-
-        $this->pageIndex = min($pageCount - 1, $this->pageIndex + 1);
-
-        $passwordsShown = ($this->pageIndex == $pageCount - 1)
-            ? (count($this->passwords) % $passwordsPerPage)
-            : $passwordsPerPage;
+        $passwordsShown = ($this->pageIndex == $this->pageCount - 1)
+            ? (count($this->passwords) % $this->passwordsPerPage)
+            : $this->passwordsPerPage;
 
         $this->rowIndex = min($passwordsShown - 1, $this->rowIndex);;
     }
@@ -155,38 +170,31 @@ implements
 
     function scrollDown()
     {
-        $dimensions = Terminal::getDimensions();
-
-        $passwordsPerPage = $dimensions->height - 5;
-
-        $pageCount = (int) (count($this->passwords) / $passwordsPerPage) + 1;
-
-        $passwordsShown = ($this->pageIndex == $pageCount - 1)
-            ? (count($this->passwords) % $passwordsPerPage)
-            : $passwordsPerPage;
+        $passwordsShown = ($this->pageIndex == $this->pageCount - 1)
+            ? (count($this->passwords) % $this->passwordsPerPage)
+            : $this->passwordsPerPage;
 
         $this->rowIndex = min($passwordsShown - 1, $this->rowIndex + 1);
     }
 
     function deleteCurrent()
     {
-        $dimensions = Terminal::getDimensions();
-        $passwordsPerPage = $dimensions->height - 5;
         PasswordsOfBabelData::update(
             fn($data) => array_splice(
                 $data->encryptedPasswords,
-                $this->pageIndex * $passwordsPerPage + $this->rowIndex,
+                $this->pageIndex * $this->passwordsPerPage + $this->rowIndex,
                 1
             )
         );
-        $this->refreshPasswords();
+        $this->reloadPasswords();
     }
 
-    private function refreshPasswords(): void
+    private function reloadPasswords(): void
     {
         $this->passwords = array_map(
             static fn(StoredPassword $pw) => $pw->name,
             PasswordsOfBabelData::get()->encryptedPasswords
         );
+        $this->pageCount = (int) ((count($this->passwords) - 1) / $this->passwordsPerPage) + 1;
     }
 }
