@@ -44,7 +44,7 @@ implements
 
         $revealText = "[" . $this->passwordName . "]";
         $revealTextX = $modalCentreX - strlen($revealText) / 2;
-        $revealTextY = $modalMarginY + 1 + ($modalHeight / 2) - 4;
+        $revealTextY = $modalMarginY + 1 + ($modalHeight / 2) - 3;
         Terminal::setColor(Colour::BLUE);
         Terminal::writeAt($revealTextY, $revealTextX, $revealText);
 
@@ -65,7 +65,7 @@ implements
             Terminal::writeAt($revealTextY + 1 + $index, $x, $line);
         }
 
-        $copiedText = "[The room has been copied to your clipboard]";
+        $copiedText = "[The https://libraryofbabel.app room has been copied to your clipboard]";
         $copiedTextX = $modalCentreX - strlen($copiedText) / 2;
         $copiedTextY = $modalMarginY + 1 + $modalHeight - 1;
         Terminal::setColor(Colour::GREEN);
