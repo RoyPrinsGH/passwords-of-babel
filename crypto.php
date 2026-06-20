@@ -6,7 +6,7 @@ final class StoredPassword
 {
     public function __construct(
         public string $name,
-        public string $encryptedValue
+        public string $encryptedLocation
     ) {}
 }
 

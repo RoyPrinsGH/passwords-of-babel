@@ -116,11 +116,14 @@ implements
 
     function storePassword()
     {
+        $location = searchLibraryOfBabel($this->passwordValueInputText);
+        $locationFlattened = $location->toString();
+
         PasswordsOfBabelData::update(
             fn($data) => $data->encryptedPasswords[]
                 = new StoredPassword(
                     $this->passwordNameInputText,
-                    EncryptionKey::get()->encrypt($this->passwordValueInputText)
+                    EncryptionKey::get()->encrypt($locationFlattened)
                 )
         );
 
