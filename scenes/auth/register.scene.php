@@ -1,8 +1,8 @@
 <?php
 
-use MyPhpTui\{BuiltinEvents, Terminal, Colour, Config, Scene, EventBus, KeyDownHandler, KeyInfo, KeyKind, MethodEventHandlers};
+use MyPhpTui\{BuiltinEvents, Terminal, Colour, Config, Scene, EventBus, KeyDownHandler, MethodEventHandlers, KeyInfo, KeyKind};
 
-class LoginScene implements Scene, KeyDownHandler
+class RegisterScene implements Scene, KeyDownHandler
 {
     use MethodEventHandlers;
 
@@ -14,17 +14,17 @@ class LoginScene implements Scene, KeyDownHandler
 
         $dimensions = Terminal::getDimensions();
 
-        $loginText = "Please input your password to log in:";
+        $loginText = "Please provide a password for future logins:";
         $loginTextX = $dimensions->width / 2 - strlen($loginText) / 2;
         $loginTextY = $dimensions->height / 2 - 1;
 
-        Terminal::setColor(Colour::GREEN);
+        Terminal::setColor(Colour::BLUE);
         Terminal::writeAt($loginTextY, $loginTextX, $loginText);
 
         $inputTextX = $dimensions->width / 2 - strlen($this->inputText) / 2;
         $inputTextY = $dimensions->height / 2;
 
-        Terminal::setColor(Colour::RED);
+        Terminal::setColor(Colour::GREEN);
         Terminal::writeAt($inputTextY, $inputTextX, $this->inputText);
 
         Terminal::reset();
@@ -38,7 +38,8 @@ class LoginScene implements Scene, KeyDownHandler
                 return;
 
             case KeyKind::Enter:
-                self::trySubmitLogin();
+                $this->submitPasswordChange();
+                EventBus::emit(BuiltinEvents::SCENE_SWAP, LoginScene::class);
                 return;
 
             case KeyKind::Character:
@@ -50,16 +51,11 @@ class LoginScene implements Scene, KeyDownHandler
         }
     }
 
-    function trySubmitLogin()
+    function submitPasswordChange()
     {
         $input = trim($this->inputText);
-        $requiredHash = Config::get()->passwordHash;
-
-        if (password_verify($input, $requiredHash)) {
-            EncryptionKey::set($input);
-            EventBus::emit(BuiltinEvents::SCENE_PUSH, PasswordOverviewScene::class);
-        }
-
-        $this->inputText = "";
+        $config = Config::get();
+        $config->passwordHash = password_hash($input, PASSWORD_BCRYPT);
+        MyPhpTui\StorageApi::store(CONFIG_PATH, $config);
     }
 }

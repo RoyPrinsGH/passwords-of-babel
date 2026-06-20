@@ -1,11 +1,16 @@
 <?php
 
-class StoredPassword
+final class StoredPassword
 {
     public function __construct(
         public string $name,
         public string $encryptedValue
     ) {}
+}
+
+final class EncryptionKey
+{
+    use MyPhpTui\NamedFacade;
 }
 
 // shamelessly copied over from chatgpt

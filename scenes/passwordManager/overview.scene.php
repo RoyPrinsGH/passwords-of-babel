@@ -1,9 +1,16 @@
 <?php
 
-use MyPhpTui\{Colour, Terminal, Scene, Event, EventKind, CustomEventData, Direction, KeyInfo, KeyKind, TuiCallbackAction, TuiCallbackActionFactory};
+use MyPhpTui\{BuiltinEvents, Colour, Config, Terminal, Scene, CustomEventHandler, Dimensions, Direction, EventBus, KeyDownHandler, KeyInfo, KeyKind, MethodEventHandlers, ResizeHandler};
 
-class PasswordOverviewScene implements Scene
+class PasswordOverviewScene
+implements
+    Scene,
+    CustomEventHandler,
+    ResizeHandler,
+    KeyDownHandler
 {
+    use MethodEventHandlers;
+
     private int $pageIndex = 0;
     private int $rowIndex = 0;
     private array $passwords = [];
@@ -26,8 +33,8 @@ class PasswordOverviewScene implements Scene
         if (count($this->passwords) == 0) {
             Terminal::setColor(Colour::WHITE, Colour::BG_RED);
             Terminal::writeAt(3, 0, "No passwords stored yet.");
-
-            goto finishDraw;
+            Terminal::reset();
+            return;
         }
 
         $passwordsPerPage = max(1, $dimensions->height - 4);
@@ -44,41 +51,31 @@ class PasswordOverviewScene implements Scene
 
         $pageCount = (int) (count($this->passwords) / $passwordsPerPage) + 1;
         Terminal::writeAt($dimensions->height - 1, 0, "Page " . $this->pageIndex + 1 . " / " . $pageCount);
-
-        finishDraw:
         Terminal::reset();
     }
 
-    function handleEvent(Event $event): ?TuiCallbackAction
+    function onCustomEvent(string $eventName, mixed $eventData)
     {
-        if ($event->kind === EventKind::Custom) {
-            assert($event->data instanceof CustomEventData);
+        if ($eventName === AddPasswordScene::EVENT_PASSWORD_UPDATED)
+            $this->refreshPasswords();
+    }
 
-            if ($event->data->name === 'passwords.updated')
-                $this->refreshPasswords();
+    function onResize(Dimensions $_)
+    {
+        $this->pageIndex = 0;
+        $this->rowIndex = 0;
+    }
 
-            return null;
-        }
-
-        if ($event->kind === EventKind::Resize) {
-            $this->pageIndex = 0;
-            $this->rowIndex = 0;
-            return null;
-        }
-
-        if ($event->kind !== EventKind::KeyDown)
-            return null;
-
-        assert($event->data instanceof KeyInfo);
-        $keyInfo = $event->data;
-
+    function onKeyDown(KeyInfo $keyInfo)
+    {
         switch ($keyInfo->kind) {
             case KeyKind::Enter:
                 $this->revealCurrent();
-                break;
+                return;
 
             case KeyKind::Escape:
-                return TuiCallbackActionFactory::exit();
+                EventBus::emit(BuiltinEvents::EXIT);
+                return;
 
             case KeyKind::Direction:
                 assert($keyInfo->data instanceof Direction);
@@ -94,7 +91,7 @@ class PasswordOverviewScene implements Scene
                     Direction::Right => $this->pageIndex = min($pageCount - 1, $this->pageIndex + 1),
                 };
 
-                break;
+                return;
 
             case KeyKind::Character:
                 assert($keyInfo->data instanceof string);
@@ -102,18 +99,13 @@ class PasswordOverviewScene implements Scene
 
                 switch ($pressedKey) {
                     case 'a':
-                        return TuiCallbackActionFactory::pushScene(AddPasswordScene::class);
+                        EventBus::emit(BuiltinEvents::SCENE_PUSH, AddPasswordScene::class);
                     case 'd':
                         $this->deleteCurrent();
                 }
 
-                break;
-
-            default:
-                break;
+                return;
         }
-
-        return null;
     }
 
     function revealCurrent()
@@ -128,8 +120,9 @@ class PasswordOverviewScene implements Scene
 
     private function refreshPasswords(): void
     {
-        global $CONFIG;
-        assert($CONFIG instanceof PasswordsOfBabelConfig);
-        $this->passwords = array_map(static fn(StoredPassword $pw) => $pw->name, $CONFIG->encryptedPasswords);
+        $this->passwords = array_map(
+            static fn(StoredPassword $pw) => $pw->name,
+            Config::get()->encryptedPasswords
+        );
     }
 }

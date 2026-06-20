@@ -36,57 +36,24 @@ final class Dimensions
     ) {}
 }
 
-final class Event
+final class BuiltinEvents
 {
-    public function __construct(
-        public EventKind $kind,
-        public mixed $data,
-    ) {}
+    public const RESIZE = 'resize';
+    public const LIFECYCLE_START_FRAME = 'lifecycle.prekeyhandle';
+    public const LIFECYCLE_START_BUS_READ = 'lifecycle.postkeyhandle';
+    public const KEY_DOWN = 'input.keydown';
+    public const SCENE_PUSH = 'scene.push';
+    public const SCENE_POP = 'scene.pop';
+    public const SCENE_SWAP = 'scene.swap';
+    public const EXIT = 'exit';
 }
 
-final class CustomEventData
+final class Event
 {
     public function __construct(
         public string $name,
         public mixed $data = null,
     ) {}
-}
-
-final class EventFactory
-{
-    public static function preKeyHandle(): Event
-    {
-        return new Event(EventKind::PreKeyHandle, null);
-    }
-
-    public static function keyDown(KeyInfo $keyInfo): Event
-    {
-        return new Event(EventKind::KeyDown, $keyInfo);
-    }
-
-    public static function postKeyHandle(): Event
-    {
-        return new Event(EventKind::PostKeyHandle, null);
-    }
-
-    public static function resize(): Event
-    {
-        return new Event(EventKind::Resize, null);
-    }
-
-    public static function custom(CustomEventData $data): Event
-    {
-        return new Event(EventKind::Custom, $data);
-    }
-}
-
-enum EventKind
-{
-    case PreKeyHandle;
-    case KeyDown;
-    case PostKeyHandle;
-    case Resize;
-    case Custom;
 }
 
 final class EventBus
@@ -95,10 +62,10 @@ final class EventBus
 
     public static function emit(string $name, mixed $data = null): void
     {
-        self::$queuedEvents[] = new CustomEventData($name, $data);
+        self::$queuedEvents[] = new Event($name, $data);
     }
 
-    public static function next(): ?CustomEventData
+    public static function next(): ?Event
     {
         return array_shift(self::$queuedEvents) ?: null;
     }
@@ -133,8 +100,7 @@ enum Direction
 interface Scene
 {
     public function draw();
-
-    public function handleEvent(Event $event): ?TuiCallbackAction;
+    public function handleEvent(Event $event);
 }
 
 final class SceneManager
@@ -162,6 +128,15 @@ final class SceneManager
         $this->pushScene($sceneClass);
     }
 
+    public function handleEvent(Event $event): void
+    {
+        foreach (array_reverse($this->scenes) as $scene) {
+            $scene->handleEvent($event);
+            if ($event->name === BuiltinEvents::KEY_DOWN)
+                return;
+        }
+    }
+
     private static function instantiateScene(string $sceneClass): Scene
     {
         $class = new ReflectionClass($sceneClass);
@@ -175,75 +150,6 @@ final class SceneManager
         return $class->newInstance();
     }
 }
-
-enum SceneActionKind
-{
-    case PushScene;
-    case PopScene;
-    case SwapScene;
-}
-
-final class SceneAction
-{
-    public function __construct(
-        public SceneActionKind $kind,
-        public mixed $data,
-    ) {}
-}
-
-enum TuiCallbackActionKind
-{
-    case Exit;
-    case SceneAction;
-    case ConsumeEvent;
-}
-
-final class TuiCallbackActionFactory
-{
-    public static function exit(): TuiCallbackAction
-    {
-        return new TuiCallbackAction(TuiCallbackActionKind::Exit, null);
-    }
-
-    public static function pushScene(string $sceneClass): TuiCallbackAction
-    {
-        return new TuiCallbackAction(
-            TuiCallbackActionKind::SceneAction,
-            new SceneAction(SceneActionKind::PushScene, $sceneClass),
-        );
-    }
-
-    public static function swapScene(string $sceneClass): TuiCallbackAction
-    {
-        return new TuiCallbackAction(
-            TuiCallbackActionKind::SceneAction,
-            new SceneAction(SceneActionKind::SwapScene, $sceneClass),
-        );
-    }
-
-    public static function popScene(): TuiCallbackAction
-    {
-        return new TuiCallbackAction(
-            TuiCallbackActionKind::SceneAction,
-            new SceneAction(SceneActionKind::PopScene, null),
-        );
-    }
-
-    public static function consumeEvent(): TuiCallbackAction
-    {
-        return new TuiCallbackAction(TuiCallbackActionKind::ConsumeEvent, null);
-    }
-}
-
-final class TuiCallbackAction
-{
-    public function __construct(
-        public TuiCallbackActionKind $kind,
-        public mixed $data,
-    ) {}
-}
-
-final class TuiExitException extends Exception {}
 
 final class EmptySceneStackException extends Exception {}
 
@@ -326,79 +232,50 @@ function runTui(?string $startSceneClass = null)
 
     try {
         $storedDimensions = Terminal::getDimensions();
-        $queuedSceneAction = null;
-
-        $handleEvent =
-            function (Event $event)
-            use (&$sceneManager, &$queuedSceneAction) {
-                foreach (array_reverse($sceneManager->scenes) as $scene) {
-                    $callbackAction = $scene->handleEvent($event);
-                    switch ($callbackAction?->kind) {
-                        case TuiCallbackActionKind::Exit:
-                            throw new TuiExitException();
-
-                        case TuiCallbackActionKind::SceneAction:
-                            $queuedSceneAction = $callbackAction->data;
-                            return;
-
-                        case TuiCallbackActionKind::ConsumeEvent:
-                            return;
-
-                        default:
-                            if ($event->kind == EventKind::KeyDown)
-                                return;
-
-                            continue;
-                    }
-                }
-            };
 
         while (true) {
             $currentDimensions = Terminal::getDimensions();
+
+            $sceneManager->handleEvent(new Event(BuiltinEvents::LIFECYCLE_START_FRAME));
 
             if (
                 $storedDimensions->width !== $currentDimensions->width
                 || $storedDimensions->height !== $currentDimensions->height
             ) {
-                $handleEvent(EventFactory::resize());
+                $sceneManager->handleEvent(new Event(BuiltinEvents::RESIZE, $currentDimensions));
                 $storedDimensions = $currentDimensions;
             }
+
+            while ($keyInfo = readKey())
+                $sceneManager->handleEvent(new Event(BuiltinEvents::KEY_DOWN, $keyInfo));
 
             foreach ($sceneManager->scenes as $scene)
                 $scene->draw();
 
-            $handleEvent(EventFactory::preKeyHandle());
+            $sceneManager->handleEvent(new Event(BuiltinEvents::LIFECYCLE_START_BUS_READ));
 
-            while ($keyInfo = readKey())
-                $handleEvent(EventFactory::keyDown($keyInfo));
-
-            $handleEvent(EventFactory::postKeyHandle());
-
-            while ($customEvent = EventBus::next())
-                $handleEvent(EventFactory::custom($customEvent));
-
-            if ($queuedSceneAction) {
-
-                switch ($queuedSceneAction->kind) {
-                    case SceneActionKind::PushScene:
-                        $sceneManager->pushScene($queuedSceneAction->data);
+            while ($event = EventBus::next()) {
+                switch ($event->name) {
+                    case BuiltinEvents::SCENE_PUSH:
+                        $sceneManager->pushScene($event->data);
                         break;
-
-                    case SceneActionKind::PopScene:
+                    case BuiltinEvents::SCENE_POP:
                         $sceneManager->popScene();
                         break;
-
-                    case SceneActionKind::SwapScene:
-                        $sceneManager->swapScene($queuedSceneAction->data);
+                    case BuiltinEvents::SCENE_SWAP:
+                        $sceneManager->swapScene($event->data);
+                        break;
+                    case BuiltinEvents::EXIT:
+                        break 3;
+                    default:
+                        $sceneManager->handleEvent($event);
                         break;
                 }
-
-                $queuedSceneAction = null;
             }
 
             usleep(16_000);
         }
-    } catch (TuiExitException | EmptySceneStackException) {
+    } catch (EmptySceneStackException) {
         //
     } finally {
         echo "\033[?25h\033[0m\033[2J\033[H";
@@ -547,5 +424,66 @@ final class StorageApi
 
         if (file_put_contents($path, $json, LOCK_EX) === false)
             throw new CannotWriteDirException();
+    }
+}
+
+trait NamedFacade
+{
+    private static mixed $data;
+
+    public static function set(mixed $data)
+    {
+        self::$data = $data;
+    }
+
+    public static function get(): mixed
+    {
+        return self::$data;
+    }
+}
+
+final class Config
+{
+    use NamedFacade;
+}
+
+interface ResizeHandler
+{
+    function onResize(Dimensions $dimensions);
+}
+
+interface CustomEventHandler
+{
+    function onCustomEvent(string $eventName, mixed $eventData);
+}
+
+interface KeyDownHandler
+{
+    function onKeyDown(KeyInfo $keyInfo);
+}
+
+trait MethodEventHandlers
+{
+    function handleEvent(Event $event)
+    {
+        switch ($event->name) {
+            case BuiltinEvents::KEY_DOWN:
+                if ($this instanceof KeyDownHandler) {
+                    $this->onKeyDown($event->data);
+                }
+                return;
+
+            case BuiltinEvents::RESIZE:
+                if ($this instanceof ResizeHandler) {
+                    $this->onResize($event->data);
+                }
+                return;
+
+            default:
+                if ($this instanceof CustomEventHandler) {
+                    $this->onCustomEvent($event->name, $event->data);
+                }
+                return;
+        }
     }
 }

@@ -1,9 +1,16 @@
 <?php
 
-use MyPhpTui\{Colour, Terminal, Scene, Event, EventBus, EventKind, KeyInfo, KeyKind, TuiCallbackAction, TuiCallbackActionFactory};
+use MyPhpTui\{BuiltinEvents, Colour, Config, Terminal, Scene, EventBus, KeyDownHandler, KeyInfo, KeyKind, MethodEventHandlers};
 
-class AddPasswordScene implements Scene
+class AddPasswordScene
+implements
+    Scene,
+    KeyDownHandler
 {
+    use MethodEventHandlers;
+
+    public const EVENT_PASSWORD_UPDATED = 'passwords.updated';
+
     private string $passwordNameInputText = "";
     private string $passwordValueInputText = "";
     private bool $nameLockedIn = false;
@@ -57,58 +64,56 @@ class AddPasswordScene implements Scene
         Terminal::reset();
     }
 
-    function handleEvent(Event $event): ?TuiCallbackAction
+    function onKeyDown(KeyInfo $keyInfo)
     {
-        if ($event->kind != EventKind::KeyDown)
-            return null;
-
-        assert($event->data instanceof KeyInfo);
-        $keyInfo = $event->data;
-
         if ($this->nameLockedIn) {
             $input = &$this->passwordValueInputText;
         } else {
             $input = &$this->passwordNameInputText;
         }
 
-        if ($keyInfo->kind === KeyKind::BackSpace) {
-            $input = substr($input, 0, -1) ?: "";
-            return null;
+        switch ($keyInfo->kind) {
+            case KeyKind::BackSpace:
+                $input = substr($input, 0, -1) ?: "";
+                return;
+
+            case KeyKind::Enter:
+                $this->submitInput();
+                return;
+
+            case KeyKind::Character:
+                assert($keyInfo->data instanceof string);
+                $inputChar = $keyInfo->data;
+
+                $input .= $inputChar;
+                return;
         }
-
-        if ($keyInfo->kind === KeyKind::Enter) {
-            if ($this->nameLockedIn) {
-                $this->addPassword();
-                EventBus::emit('passwords.updated');
-                return TuiCallbackActionFactory::popScene();
-            }
-
-            $this->nameLockedIn = true;
-            return null;
-        }
-
-        if ($keyInfo->kind !== KeyKind::Character)
-            return null;
-
-        assert($keyInfo->data instanceof string);
-        $inputChar = $keyInfo->data;
-
-        $input .= $inputChar;
-        return null;
     }
 
-    function addPassword()
+    function submitInput()
     {
-        global $CONFIG, $CONFIGPATH, $KEY;
-        assert($CONFIG instanceof PasswordsOfBabelConfig);
-        assert($KEY instanceof string);
+        if (!$this->nameLockedIn) {
+            $this->nameLockedIn = true;
+            return;
+        }
 
-        $CONFIG->encryptedPasswords[]
+        $this->storePassword();
+
+        EventBus::emit(BuiltinEvents::SCENE_POP);
+    }
+
+    function storePassword()
+    {
+        $config = Config::get();
+
+        $config->encryptedPasswords[]
             = new StoredPassword(
                 $this->passwordNameInputText,
-                encrypt_string($this->passwordValueInputText, $KEY)
+                encrypt_string($this->passwordValueInputText, EncryptionKey::get())
             );
 
-        MyPhpTui\StorageApi::store($CONFIGPATH, $CONFIG);
+        MyPhpTui\StorageApi::store(CONFIG_PATH, $config);
+
+        EventBus::emit(self::EVENT_PASSWORD_UPDATED);
     }
 }
