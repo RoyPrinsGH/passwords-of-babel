@@ -39,8 +39,7 @@ final class Dimensions
 final class BuiltinEvents
 {
     public const RESIZE = 'resize';
-    public const LIFECYCLE_START_FRAME = 'lifecycle.prekeyhandle';
-    public const LIFECYCLE_START_BUS_READ = 'lifecycle.postkeyhandle';
+    public const LIFECYCLE_START_FRAME = 'lifecycle.startframe';
     public const KEY_DOWN = 'input.keydown';
     public const SCENE_PUSH = 'scene.push';
     public const SCENE_POP = 'scene.pop';
@@ -105,36 +104,26 @@ interface Scene
 
 final class SceneManager
 {
-    public array $scenes;
+    public array $scenes = [];
 
-    public function __construct(string $initialSceneClass)
+    public function __construct(string $baseSceneClass)
     {
-        $this->scenes = [self::instantiateScene($initialSceneClass)];
+        $this->scenes = [self::instantiateScene($baseSceneClass)];
     }
 
-    public function pushScene(string $sceneClass): void
+    public function pushSceneAt(int $index, string $sceneClass): void
     {
-        $this->scenes[] = self::instantiateScene($sceneClass);
+        array_splice($this->scenes, $index + 1, replacement: [self::instantiateScene($sceneClass)]);
     }
 
-    public function popScene(): void
+    public function popSceneAt(int $index): void
     {
-        array_pop($this->scenes);
+        array_splice($this->scenes, $index - 1);
     }
 
-    public function swapScene(string $sceneClass): void
+    public function swapSceneAt(int $index, string $sceneClass): void
     {
-        $this->popScene();
-        $this->pushScene($sceneClass);
-    }
-
-    public function handleEvent(Event $event): void
-    {
-        foreach (array_reverse($this->scenes) as $scene) {
-            $scene->handleEvent($event);
-            if ($event->name === BuiltinEvents::KEY_DOWN)
-                return;
-        }
+        array_splice($this->scenes, $index, replacement: [self::instantiateScene($sceneClass)]);
     }
 
     private static function instantiateScene(string $sceneClass): Scene
@@ -234,44 +223,49 @@ function runTui(?string $startSceneClass = null)
         $storedDimensions = Terminal::getDimensions();
 
         while (true) {
-            $currentDimensions = Terminal::getDimensions();
+            EventBus::emit(BuiltinEvents::LIFECYCLE_START_FRAME);
 
-            $sceneManager->handleEvent(new Event(BuiltinEvents::LIFECYCLE_START_FRAME));
+            $currentDimensions = Terminal::getDimensions();
 
             if (
                 $storedDimensions->width !== $currentDimensions->width
                 || $storedDimensions->height !== $currentDimensions->height
             ) {
-                $sceneManager->handleEvent(new Event(BuiltinEvents::RESIZE, $currentDimensions));
+                EventBus::emit(BuiltinEvents::RESIZE, $currentDimensions);
                 $storedDimensions = $currentDimensions;
             }
 
             while ($keyInfo = readKey())
-                $sceneManager->handleEvent(new Event(BuiltinEvents::KEY_DOWN, $keyInfo));
+                EventBus::emit(BuiltinEvents::KEY_DOWN, $keyInfo);
+
+            while ($event = EventBus::next()) {
+                foreach (array_reverse($sceneManager->scenes) as $sceneIndex => $scene) {
+                    switch ($event->name) {
+                        case BuiltinEvents::SCENE_PUSH:
+                            $sceneManager->pushSceneAt($sceneIndex, $event->data);
+                            break;
+                        case BuiltinEvents::SCENE_POP:
+                            $sceneManager->popSceneAt($sceneIndex);
+                            break;
+                        case BuiltinEvents::SCENE_SWAP:
+                            $sceneManager->swapSceneAt($sceneIndex, $event->data);
+                            break;
+                        case BuiltinEvents::EXIT:
+                            break 4;
+                        default:
+                            $scene->handleEvent($event);
+                            if (
+                                defined('MYPHPTUI_ENABLE_INPUT_PASSTHROUGH')
+                                || $event->name !== BuiltinEvents::KEY_DOWN
+                            )
+                                continue 2;
+                    }
+                    break;
+                }
+            }
 
             foreach ($sceneManager->scenes as $scene)
                 $scene->draw();
-
-            $sceneManager->handleEvent(new Event(BuiltinEvents::LIFECYCLE_START_BUS_READ));
-
-            while ($event = EventBus::next()) {
-                switch ($event->name) {
-                    case BuiltinEvents::SCENE_PUSH:
-                        $sceneManager->pushScene($event->data);
-                        break;
-                    case BuiltinEvents::SCENE_POP:
-                        $sceneManager->popScene();
-                        break;
-                    case BuiltinEvents::SCENE_SWAP:
-                        $sceneManager->swapScene($event->data);
-                        break;
-                    case BuiltinEvents::EXIT:
-                        break 3;
-                    default:
-                        $sceneManager->handleEvent($event);
-                        break;
-                }
-            }
 
             usleep(16_000);
         }
@@ -427,7 +421,7 @@ final class StorageApi
     }
 }
 
-trait NamedFacade
+trait StoreFacade
 {
     private static mixed $data;
 
@@ -444,7 +438,7 @@ trait NamedFacade
 
 final class Config
 {
-    use NamedFacade;
+    use StoreFacade;
 }
 
 interface ResizeHandler

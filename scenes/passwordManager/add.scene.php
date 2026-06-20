@@ -1,6 +1,6 @@
 <?php
 
-use MyPhpTui\{BuiltinEvents, Colour, Config, Terminal, Scene, EventBus, KeyDownHandler, KeyInfo, KeyKind, MethodEventHandlers};
+use MyPhpTui\{BuiltinEvents, Colour, Config, Terminal, Scene, EventBus, KeyDownHandler, KeyInfo, KeyKind, MethodEventHandlers, StorageApi};
 
 class AddPasswordScene
 implements
@@ -73,6 +73,10 @@ implements
         }
 
         switch ($keyInfo->kind) {
+            case KeyKind::Escape:
+                EventBus::emit(BuiltinEvents::SCENE_POP);
+                return;
+
             case KeyKind::BackSpace:
                 $input = substr($input, 0, -1) ?: "";
                 return;
@@ -112,7 +116,7 @@ implements
                 encrypt_string($this->passwordValueInputText, EncryptionKey::get())
             );
 
-        MyPhpTui\StorageApi::store(CONFIG_PATH, $config);
+        StorageApi::store(CONFIG_PATH, $config);
 
         EventBus::emit(self::EVENT_PASSWORD_UPDATED);
     }

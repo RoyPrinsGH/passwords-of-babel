@@ -10,7 +10,7 @@ final class StoredPassword
 
 final class EncryptionKey
 {
-    use MyPhpTui\NamedFacade;
+    use MyPhpTui\StoreFacade;
 }
 
 // shamelessly copied over from chatgpt
