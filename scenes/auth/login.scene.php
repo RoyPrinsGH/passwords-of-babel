@@ -53,10 +53,10 @@ class LoginScene implements Scene, KeyDownHandler
     function trySubmitLogin()
     {
         $input = trim($this->inputText);
-        $requiredHash = Config::get()->passwordHash;
+        $requiredHash = PasswordsOfBabelData::get()->passwordHash;
 
         if (password_verify($input, $requiredHash)) {
-            EncryptionKey::set($input);
+            EncryptionKey::set(new EncryptionKey($input));
             EventBus::emit(BuiltinEvents::SCENE_SWAP, [PasswordOverviewScene::class]);
         }
 

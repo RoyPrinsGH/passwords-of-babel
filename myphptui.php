@@ -387,7 +387,7 @@ final class CannotWriteDirException extends Exception {}
 
 final class StorageApi
 {
-    public static function load(string $path, string $configClassName): ?object
+    public static function load(string $path, string $className): ?object
     {
         if (!file_exists($path))
             return null;
@@ -403,16 +403,16 @@ final class StorageApi
         if (!is_array($decoded))
             throw new \UnexpectedValueException('Stored data must decode to an object payload.');
 
-        return new $configClassName(...$decoded);
+        return new $className(...$decoded);
     }
 
-    public static function store(string $path, object $config): void
+    public static function store(string $path, object $data): void
     {
         if (!is_dir($dir = dirname($path)) || !is_writable($dir))
             throw new CannotWriteDirException();
 
         $json = json_encode(
-            $config,
+            $data,
             JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR,
         );
 
@@ -421,24 +421,58 @@ final class StorageApi
     }
 }
 
-trait StoreFacade
+trait Singleton
 {
-    private static mixed $data;
+    protected static self $instance;
 
-    public static function set(mixed $data)
+    public static function set(self $instance)
     {
-        self::$data = $data;
+        static::$instance = $instance;
     }
 
-    public static function get(): mixed
+    public static function get(): static
     {
-        return self::$data;
+        return static::$instance;
+    }
+
+    public static function update(callable $updateFn)
+    {
+        $updateFn(static::$instance);
     }
 }
 
-final class Config
+abstract class Persistable
 {
-    use StoreFacade;
+    use Singleton {
+        set as private singletonSet;
+        update as private singletonUpdate;
+    }
+
+    protected static string $path;
+
+    public static function load()
+    {
+        static::set(StorageApi::load(static::$path, static::class) ?: static::default());
+    }
+
+    public abstract static function default(): static;
+
+    public static function save()
+    {
+        StorageApi::store(static::$path, static::get());
+    }
+
+    public static function set(self $instance)
+    {
+        static::singletonSet($instance);
+        static::save();
+    }
+
+    public static function update(callable $updateFn)
+    {
+        static::singletonUpdate($updateFn);
+        static::save();
+    }
 }
 
 interface ResizeHandler

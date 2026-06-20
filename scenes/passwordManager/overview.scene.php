@@ -1,6 +1,18 @@
 <?php
 
-use MyPhpTui\{BuiltinEvents, Colour, Config, Terminal, Scene, CustomEventHandler, Dimensions, Direction, EventBus, KeyDownHandler, KeyInfo, KeyKind, MethodEventHandlers, ResizeHandler, StorageApi};
+use MyPhpTui\BuiltinEvents;
+use MyPhpTui\Colour;
+use MyPhpTui\CustomEventHandler;
+use MyPhpTui\Dimensions;
+use MyPhpTui\Direction;
+use MyPhpTui\EventBus;
+use MyPhpTui\KeyDownHandler;
+use MyPhpTui\KeyInfo;
+use MyPhpTui\KeyKind;
+use MyPhpTui\MethodEventHandlers;
+use MyPhpTui\ResizeHandler;
+use MyPhpTui\Scene;
+use MyPhpTui\Terminal;
 
 class PasswordOverviewScene
 implements
@@ -160,9 +172,13 @@ implements
     {
         $dimensions = Terminal::getDimensions();
         $passwordsPerPage = $dimensions->height - 5;
-        $config = Config::get();
-        array_splice($config->encryptedPasswords, $this->pageIndex * $passwordsPerPage + $this->rowIndex, 1);
-        StorageApi::store(CONFIG_PATH, $config);
+        PasswordsOfBabelData::update(
+            fn($data) => array_splice(
+                $data->encryptedPasswords,
+                $this->pageIndex * $passwordsPerPage + $this->rowIndex,
+                1
+            )
+        );
         $this->refreshPasswords();
     }
 
@@ -170,7 +186,7 @@ implements
     {
         $this->passwords = array_map(
             static fn(StoredPassword $pw) => $pw->name,
-            Config::get()->encryptedPasswords
+            PasswordsOfBabelData::get()->encryptedPasswords
         );
     }
 }

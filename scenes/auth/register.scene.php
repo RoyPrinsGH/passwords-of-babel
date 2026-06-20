@@ -54,8 +54,6 @@ class RegisterScene implements Scene, KeyDownHandler
     function submitPasswordChange()
     {
         $input = trim($this->inputText);
-        $config = Config::get();
-        $config->passwordHash = password_hash($input, PASSWORD_BCRYPT);
-        MyPhpTui\StorageApi::store(CONFIG_PATH, $config);
+        PasswordsOfBabelData::update(fn($data) => $data->passwordHash = password_hash($input, PASSWORD_BCRYPT));
     }
 }

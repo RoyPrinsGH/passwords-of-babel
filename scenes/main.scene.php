@@ -1,12 +1,12 @@
 <?php
 
-use MyPhpTui\{BuiltinEvents, Terminal, Scene, Event, EventBus, Config};
+use MyPhpTui\{BuiltinEvents, Terminal, Scene, Event, EventBus};
 
 class MainScene implements Scene
 {
     function __construct()
     {
-        $isPasswordUnset = (Config::get()->passwordHash === "");
+        $isPasswordUnset = (PasswordsOfBabelData::get()->passwordHash === "");
 
         if ($isPasswordUnset) {
             EventBus::emit(BuiltinEvents::SCENE_SWAP, [RegisterScene::class]);

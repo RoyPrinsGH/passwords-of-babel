@@ -1,6 +1,14 @@
 <?php
 
-use MyPhpTui\{BuiltinEvents, Colour, Config, Scene, EventBus, KeyDownHandler, KeyInfo, KeyKind, MethodEventHandlers, StorageApi, Terminal};
+use MyPhpTui\BuiltinEvents;
+use MyPhpTui\Colour;
+use MyPhpTui\EventBus;
+use MyPhpTui\KeyDownHandler;
+use MyPhpTui\KeyInfo;
+use MyPhpTui\KeyKind;
+use MyPhpTui\MethodEventHandlers;
+use MyPhpTui\Scene;
+use MyPhpTui\Terminal;
 
 class ConfirmDeletionScene
 implements
@@ -16,7 +24,7 @@ implements
     public function __construct(
         private int $passwordIndex,
     ) {
-        $this->passwordName = Config::get()->encryptedPasswords[$passwordIndex]->name;
+        $this->passwordName = PasswordsOfBabelData::get()->encryptedPasswords[$passwordIndex]->name;
     }
 
     function draw()
@@ -59,9 +67,7 @@ implements
 
     function deleteCurrent()
     {
-        $config = Config::get();
-        array_splice($config->encryptedPasswords, $this->passwordIndex, 1);
-        StorageApi::store(CONFIG_PATH, $config);
+        PasswordsOfBabelData::update(fn($data) => array_splice($data->encryptedPasswords, $this->passwordIndex, 1));
         EventBus::emit(self::EVENT_PASSWORD_DELETED);
     }
 }

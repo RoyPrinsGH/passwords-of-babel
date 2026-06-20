@@ -1,6 +1,14 @@
 <?php
 
-use MyPhpTui\{BuiltinEvents, Colour, Scene, EventBus, KeyDownHandler, KeyInfo, KeyKind, MethodEventHandlers, Terminal};
+use MyPhpTui\BuiltinEvents;
+use MyPhpTui\Colour;
+use MyPhpTui\EventBus;
+use MyPhpTui\KeyDownHandler;
+use MyPhpTui\KeyInfo;
+use MyPhpTui\KeyKind;
+use MyPhpTui\MethodEventHandlers;
+use MyPhpTui\Scene;
+use MyPhpTui\Terminal;
 
 class RevealPasswordScene
 implements

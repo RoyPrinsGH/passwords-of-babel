@@ -1,6 +1,14 @@
 <?php
 
-use MyPhpTui\{BuiltinEvents, Colour, Config, Terminal, Scene, EventBus, KeyDownHandler, KeyInfo, KeyKind, MethodEventHandlers, StorageApi};
+use MyPhpTui\BuiltinEvents;
+use MyPhpTui\Colour;
+use MyPhpTui\EventBus;
+use MyPhpTui\KeyDownHandler;
+use MyPhpTui\KeyInfo;
+use MyPhpTui\KeyKind;
+use MyPhpTui\MethodEventHandlers;
+use MyPhpTui\Scene;
+use MyPhpTui\Terminal;
 
 class AddPasswordScene
 implements
@@ -108,15 +116,13 @@ implements
 
     function storePassword()
     {
-        $config = Config::get();
-
-        $config->encryptedPasswords[]
-            = new StoredPassword(
-                $this->passwordNameInputText,
-                encrypt_string($this->passwordValueInputText, EncryptionKey::get())
-            );
-
-        StorageApi::store(CONFIG_PATH, $config);
+        PasswordsOfBabelData::update(
+            fn($data) => $data->encryptedPasswords[]
+                = new StoredPassword(
+                    $this->passwordNameInputText,
+                    EncryptionKey::get()->encrypt($this->passwordValueInputText)
+                )
+        );
 
         EventBus::emit(self::EVENT_PASSWORD_UPDATED);
     }
