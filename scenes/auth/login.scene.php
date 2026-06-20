@@ -41,6 +41,10 @@ class LoginScene implements Scene, KeyDownHandler
     function onKeyDown(KeyInfo $keyInfo)
     {
         switch ($keyInfo->kind) {
+            case KeyKind::Escape:
+                EventBus::emit(BuiltinEvents::EXIT);
+                return;
+
             case KeyKind::BackSpace:
                 $this->inputText = substr($this->inputText, 0, -1) ?: "";
                 return;

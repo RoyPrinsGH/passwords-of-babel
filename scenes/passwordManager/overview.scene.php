@@ -33,7 +33,6 @@ implements
 
     public function __construct()
     {
-        $this->cachedDimensions = Terminal::getDimensions();
         $this->reloadPasswords();
         $this->onResize(Terminal::getDimensions());
     }
@@ -102,7 +101,10 @@ implements
     {
         switch ($keyInfo->kind) {
             case KeyKind::Enter:
-                EventBus::emit(BuiltinEvents::SCENE_PUSH, [RevealPasswordScene::class]);
+                EventBus::emit(
+                    BuiltinEvents::SCENE_PUSH,
+                    [RevealPasswordScene::class, [$this->passwordIndexOffset + $this->rowIndex]]
+                );
                 return;
 
             case KeyKind::Escape:
